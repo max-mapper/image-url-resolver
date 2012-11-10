@@ -41,15 +41,31 @@ function gotHTML(err, body, cb) {
   var parsedHTML = $.load(body.toString())
   var frontPageList = getListItems(parsedHTML)
   var frontPageShares = getFrontPageShares(frontPageList)
-  var validLinks = []
+  var validURLs = []
   frontPageShares.map(function(shareHTML) {
-    var links = $.load(shareHTML)('a')
-    if (links.length === 0) return
-    var firstLink = links.attr('href')
-    var link = url.parse(firstLink)
-    validLinks.push(qs.parse(link.query))
+    validURLs.push(getURL(shareHTML))
   })
-  cb(err, validLinks)
+  console.log(getPageURLs(parsedHTML))
+  cb(err, validURLs)
+}
+
+function getPageURLs(html) {
+  var navs = html('#navcnt td')
+  navs = _.compact(navs.map(function(i, nav) {
+    nav = $(nav)
+    if (nav.hasClass('navend')) return
+    if (nav.hasClass('cur')) return
+    return nav.find('a').attr('href')
+  }))
+  return navs
+}
+
+function getURL(linksHTML) {
+  var links = $.load(linksHTML)('a')
+  if (links.length === 0) return
+  var firstLink = links.attr('href')
+  var link = url.parse(firstLink)
+  return qs.parse(link.query)
 }
 
 function getListItems(html) {
