@@ -5,9 +5,9 @@ var concat = require('concat-stream')
 var _ = require('underscore')
 var url = require('url')
 var qs = require('querystring')
-var unGzip = zlib.createGunzip()
 
 module.exports = function(searchURL, cb) {
+  var unGzip = zlib.createGunzip()
   searchByImage(searchURL).pipe(unGzip).pipe(concat(function(err, body) {
     gotHTML(err, body, cb)
   }))
@@ -38,6 +38,7 @@ function searchByImage(searchURL) {
 }
 
 function gotHTML(err, body, cb) {
+  var unGzip = zlib.createGunzip()
   var parsedHTML = $.load(body.toString())
   var frontPageList = getListItems(parsedHTML)
   var frontPageShares = getFrontPageShares(frontPageList)
@@ -45,8 +46,19 @@ function gotHTML(err, body, cb) {
   frontPageShares.map(function(shareHTML) {
     validURLs.push(getURL(shareHTML))
   })
-  console.log(getPageURLs(parsedHTML))
-  cb(err, validURLs)
+  var pageURLs = getPageURLs(parsedHTML)
+  var pendingRequests = pageURLs.length
+  pageURLs.map(function(pageURL) {
+    searchByImage(pageURL).pipe(unGzip).pipe(concat(function(err, body) {
+      pendingRequests--
+      var html = $.load(body.toString())
+      var linkList = getListItems(html)
+      linkList.map(function(shareHTML) {
+        validURLs.push(getURL(shareHTML))
+      })
+      if (pendingRequests === 0) cb(err, validURLs)
+    }))
+  })
 }
 
 function getPageURLs(html) {
@@ -55,7 +67,7 @@ function getPageURLs(html) {
     nav = $(nav)
     if (nav.hasClass('navend')) return
     if (nav.hasClass('cur')) return
-    return nav.find('a').attr('href')
+    return "http://images.google.com" + nav.find('a').attr('href')
   }))
   return navs
 }
